@@ -1,37 +1,38 @@
-# DINOv2 Implementation for Custom Industrial Dataset
+# DINOv2 Implementation for Custom BBU Dataset
 
 ## Objective
-Implement and adapt DINOv2, a self-supervised learning framework, for industrial quality control image analysis.
+Implement and adapt DINOv2, a self-supervised learning framework, for industrial quality control image analysis, specifically focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering.
 
 ## Table of Contents
 1. [Overview of DINOv2](#overview-of-dinov2)
-2. [Custom Industrial Dataset](#custom-industrial-dataset)
+2. [Custom BBU Dataset](#custom-bbu-dataset)
    - [Directory Structure](#directory-structure)
    - [Annotations](#annotations)
 3. [Project Focus](#project-focus)
 4. [Self-Supervised Learning with DINOv2](#self-supervised-learning-with-dinov2)
-   - [Data Preparation and Augmentation](#1-data-preparation-and-augmentation)
-   - [Model Architecture](#2-model-architecture)
-   - [Training Process](#3-training-process)
-   - [Evaluation and Fine-Tuning](#4-evaluation-and-fine-tuning)
-   - [Optimization and Deployment](#5-optimization-and-deployment)
-5. [Codebase Structure](#codebase-structure-and-key-modules)
-6. [Pipeline Sequence](#pipeline-sequence-and-corresponding-code-components)
+   - [1. Data Preparation and Augmentation](#1-data-preparation-and-augmentation)
+   - [2. Model Architecture](#2-model-architecture)
+   - [3. Training Process](#3-training-process)
+   - [4. Evaluation and Fine-Tuning](#4-evaluation-and-fine-tuning)
+   - [5. Optimization and Deployment](#5-optimization-and-deployment)
+5. [Codebase Structure and Key Modules](#codebase-structure-and-key-modules)
+6. [Pipeline Sequence and Corresponding Code Components](#pipeline-sequence-and-corresponding-code-components)
 7. [Flowchart Representation](#flowchart-representation)
 8. [Training Procedure](#training-procedure)
    - [Overview](#overview)
    - [Steps Involved](#steps-involved)
    - [Multi-GPU Training Strategy](#multi-gpu-training-strategy)
    - [Checkpointing: Saving and Loading](#checkpointing-saving-and-loading)
-   - [Loading Pretrained Weights](#loading-pretrained-or-existing-weights)
+   - [Loading Pretrained Weights](#loading-pretrained-weights)
    - [Fully Sharded Data Parallel (FSDP)](#fully-sharded-data-parallel-fsdp)
-9. [Model Architecture](#model-architecture)
-10. [Summary](#summary)
+9. [Additional Notes](#additional-notes)
+10. [Model Saving and Loading](#model-saving-and-loading)
+11. [Summary](#summary)
 
 ## Overview of DINOv2
 DINOv2 leverages self-supervised learning to train vision transformers without labeled data, aiming to learn robust feature representations through its intricate architecture and training processes.
 
-## Custom Industrial Dataset
+## Custom BBU Dataset
 
 ### Directory Structure
 ```
@@ -99,8 +100,8 @@ This structure groups images by `group_id`, facilitating effective training and 
   - **Color Distortions and Blurring**: Enhance robustness by varying color and applying Gaussian blur.
   - **Normalization**: Scale image data appropriately for model training.
 - **Implementation**:
-  - `data/augmentations.py`: Implements the `DataAugmentationDINO` class.
-  - `data/datasets/image_net.py`: Defines the `ImageNet22k` dataset class for data loading and preprocessing.
+  - `dinov2/data/augmentations.py`: Implements the `DataAugmentationDINO` class.
+  - `dinov2/data/datasets/bbu_data.py`: Defines the `BBUDataset` dataset class inherited from `ExtendedVisionDataset` for data loading and preprocessing.
 
 ### 2. Model Architecture
 - **Vision Transformer (ViT) Backbone**:
@@ -165,16 +166,16 @@ This structure groups images by `group_id`, facilitating effective training and 
 - **`eval/utils.py`**: Utilities for evaluation, including normalization wrappers.
 - **`layers/dino_head.py`**: Defines the `DINOHead` class.
 - **`loss/dino_clstoken_loss.py`**: Implements the `DINOLoss` class.
-- **`data/augmentations.py` & `data/datasets/image_net.py`**: Handle data augmentation and dataset loading.
+- **`dinov2/data/augmentations.py` & `dinov2/data/datasets/bbu_data.py`**: Handle data augmentation and dataset loading.
 - **`run/train/train.py`**: Facilitates training job submissions.
-- **Configuration Files (`configs/*.yaml`)**: Manage hyperparameters and model settings.
+- **Configuration Files (`dinov2/configs/*.yaml`)**: Manage hyperparameters and model settings.
 
 ## Pipeline Sequence and Corresponding Code Components
 1. **Data Collection and Preparation**
-   - `data/datasets/image_net.py`
-   - `data/augmentations.py`
+   - `dinov2/data/datasets/bbu_data.py`
+   - `dinov2/data/augmentations.py`
 2. **Data Augmentation and Normalization**
-   - `data/augmentations.py`
+   - `dinov2/data/augmentations.py`
 3. **Model Initialization**
    - `models/vision_transformer.py`
    - `hub/depthers.py` & `hub/backbones.py`
@@ -244,7 +245,7 @@ The training procedure in DINOv2 leverages self-supervised learning to train vis
    - Apply augmentations using `DataAugmentationDINO` from `dinov2/data/augmentations.py`.
 2. **Model Initialization**
    - Initialize student and teacher networks from `models/vision_transformer.py`.
-   - Only the student model can load pretrained weights via the `pretrained_weights` parameter in `ssl_default_config.yaml`.
+   - Only the student model can load pretrained weights via the `student.pretrained_weights` parameter in `dinov2/configs/ssl_default_config.yaml`.
 3. **Forward Pass**
    - Pass augmented images through both networks to extract features.
 4. **Loss Computation**
@@ -284,180 +285,230 @@ DINOv2 supports distributed training across multiple GPUs using PyTorch's Fully 
 
 ### Checkpointing: Saving and Loading
 
-#### Saving Checkpoints
-Managed in `train/train.py` using `FSDPCheckpointer` to save model, optimizer, and scheduler states periodically.
-```python
-if iteration % config['train']['saveckp_freq'] == 0:
-    checkpoint = {
-        'epoch': epoch,
-        'iteration': iteration,
-        'student_state_dict': student.state_dict(),
-        'teacher_state_dict': teacher.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'scheduler_state_dict': scheduler.state_dict(),
-    }
-    torch.save(checkpoint, os.path.join(config['train']['output_dir'], f'checkpoint_{iteration}.pth'))
-```
-
 #### Loading Checkpoints
-Handled in `train/train.py` where each process loads its corresponding checkpoint based on rank.
-```python
-checkpoint_path = config['train']['resume_path'].format(rank=rank)
 
-if config.train.resume:
-    if os.path.isfile(checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=f'cuda:{rank}')
-        student.load_state_dict(checkpoint['student_state_dict'])
-        teacher.load_state_dict(checkpoint['teacher_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        start_epoch = checkpoint['epoch']
-        iteration = checkpoint['iteration']
-        logger.info(f"Rank {rank}: Resumed training from checkpoint {checkpoint_path} at epoch {start_epoch}, iteration {iteration}")
-    else:
-        logger.error(f"Rank {rank}: No checkpoint found at {checkpoint_path}")
-        raise FileNotFoundError(f"No checkpoint found at {checkpoint_path}")
-```
+##### Step-by-Step Guide
 
-#### Step-by-Step Guide
 1. **Identify Checkpoint Files**
-   - Locate in `output_dir` (e.g., `/data/training_code/Pein/dinov2/temp_logs/bbu_test/`).
-2. **Modify Configuration for Resuming**
-   ```yaml
-   train:
-     resume: true
-     resume_path: /data/training_code/Pein/dinov2/temp_logs/bbu_test/model_0011249.rank_{rank}.pth
-   ```
+   - Locate the checkpoint directory specified in `MODEL.WEIGHTS` (e.g., `dinov2/temp_logs/bbu_test/`).
+   - This directory should contain sharded checkpoint files named as `model_{step}.rank_{rank}.pth` for each GPU rank.
+
+2. **Configure Resuming**
+   - Utilize the `--resume` flag in the training script to enable resuming from checkpoints.
+   - In your training script (`train.sh`), ensure that `NO_RESUME` is set to `false`:
+     ```bash
+     NO_RESUME=false
+     ```
+
 3. **Utilize Training Script**
-   - `train/train.py` handles loading based on rank.
+   - The `run/train/train.sh` script manages the resuming logic based on the `--no-resume` flag.
+   - Ensure that the script references the correct configuration and output directory.
+
 4. **Launch Training with Distributed Launcher**
    ```bash
-   torchrun --nproc_per_node=4 train/train.py --config /data/training_code/Pein/dinov2/temp_logs/bbu_test/config.yaml
+   ./run/train/train.sh
    ```
+   - This command will initiate the training process, automatically loading the latest checkpoints for each GPU rank.
+
 5. **Verify Checkpoint Loading**
-   - Check training logs for successful loading messages.
+   - Monitor the training logs to confirm successful loading:
+     ```
+     [INFO] Rank 0: Resumed training from checkpoint dinov2/temp_logs/bbu_test/model_0011249.rank_0.pth at epoch 10, iteration 1000
+     [INFO] Rank 1: Resumed training from checkpoint dinov2/temp_logs/bbu_test/model_0011249.rank_1.pth at epoch 10, iteration 1000
+     # ... and so on for other ranks
+     ```
+
 6. **Continue Training**
+   - Training will seamlessly resume from the last saved checkpoint, maintaining consistency across all GPU ranks.
 
-#### Best Practices
-- **Consistent State Across Ranks**
-- **Atomic Saving**
-- **Backup Checkpoints**
-- **Monitor Synchronization**
+### Loading Pretrained Weights
 
-### Loading Pretrained or Existing Weights
+#### Loading Pretrained Checkpoints for Self-Supervised Training
 
-#### `MODEL.WEIGHTS`
-
-- **Description**: `MODEL.WEIGHTS` refers to the path to the **student** model's checkpoint file (`model_{step}.rank_{rank}.pth`). This is typically used to resume training from a specific checkpoint or to initialize the model with previously saved weights.
-- **Usage**:
-  - **Resuming Training**: When you set `MODEL.WEIGHTS` to a specific checkpoint, the training process will load the sharded student model weights corresponding to each GPU rank.
-  - **Format**: `model_{step}.rank_{rank}.pth`, where `{step}` is the training iteration and `{rank}` is the GPU rank.
-
-#### `student.pretrained_weights`
-
-- **Description**: `student.pretrained_weights` is a configuration parameter that allows you to initialize the **student** model with weights from a pretrained DINOv2 backbone. This is useful when you want to leverage a model that has been pre-trained on a large dataset to improve performance on your custom dataset.
-- **Usage**:
-  - **Initializing with Pretrained Weights**: By setting `student.pretrained_weights` to the path of a pretrained DINOv2 backbone, the student model will load these weights before starting training.
-  - **Configuration Example**:
-    ```yaml
-    student:
-      pretrained_weights: /path/to/pretrained/student_weights.pth
-    ```
-  - **Note**: The teacher model is an Exponential Moving Average (EMA) of the student model and does not require separate pretrained weights. It will be initialized based on the student model's parameters.
-
-#### Key Differences
-
-| Feature                     | `MODEL.WEIGHTS`                               | `student.pretrained_weights`                       |
-|-----------------------------|-----------------------------------------------|-----------------------------------------------------|
-| **Purpose**                 | Resume training from a specific checkpoint    | Initialize the student model with pretrained weights |
-| **Target Model**            | **Student** model's sharded checkpoints      | **Student** model's backbone                        |
-| **Checkpoint Structure**    | Sharded (`model_{step}.rank_{rank}.pth`)      | Single file containing the backbone weights          |
-| **Usage Scenario**          | Continuing training or distributed evaluation | Enhancing model initialization with pre-trained data |
-| **Loading Mechanism**       | Handled by `FSDPCheckpointer` in `train.py`    | Specified in `ssl_default_config.yaml`              |
-
-#### Using a Pretrained DINOv2 Backbone
-
-If you want to utilize a pretrained DINOv2 backbone for your student model, follow these steps:
+To initialize the **student** model with pretrained weights and continue training on your customized dataset, follow these steps:
 
 1. **Set `student.pretrained_weights` in Configuration**
    
-   Update your configuration YAML (e.g., `ssl_default_config.yaml`) to include the path to the pretrained weights:
+   Update your configuration YAML (e.g., `dinov2/configs/ssl_default_config.yaml`) to include the path to the pretrained weights:
    
    ```yaml
    student:
-     pretrained_weights: /path/to/pretrained/student_weights.pth
+     pretrained_weights: /path/to/pretrained/hub_student_weights.pth
    ```
 
 2. **Ensure `MODEL.WEIGHTS` is Appropriately Set**
    
-   - **For Training from Pretrained Weights**: If you are initializing with pretrained weights and starting fresh training, **do not** set `MODEL.WEIGHTS`. This ensures that the training begins with the pretrained backbone.
-   
-   - **For Resuming Training**: If you intend to resume training from a specific checkpoint, set `MODEL.WEIGHTS` to the desired checkpoint path:
-   
+   - **For Training with Pretrained Weights**: Do not set `MODEL.WEIGHTS` or leave it empty to start training with the pretrained backbone.
+     
      ```yaml
-     train:
-       resume: true
-       resume_path: /data/training_code/Pein/dinov2/temp_logs/bbu_test/model_0011249.rank_{rank}.pth
+     MODEL:
+       WEIGHTS: ''
+     ```
+   
+   - **For Resuming Training from Checkpoints**: Set `MODEL.WEIGHTS` to the desired checkpoint directory.
+     
+     ```yaml
+     MODEL:
+       WEIGHTS: dinov2/temp_logs/bbu_test
      ```
 
-3. **Launch Training with the Correct Configuration**
+3. **Configure Resuming Flags in Training Script**
    
-   Use the training script with the updated configuration:
+   - **To Start Training with Pretrained Weights**:
+     
+     Ensure that `NO_RESUME=true` in your `train.sh`:
+     
+     ```bash
+     NO_RESUME=true
+     ```
    
-   ```bash
-   torchrun --nproc_per_node=4 train/train.py --config /path/to/config.yaml
-   ```
+   - **To Resume from Checkpoints**:
+     
+     Ensure that `NO_RESUME=false` in your `train.sh`:
+     
+     ```bash
+     NO_RESUME=false
+     ```
 
-4. **Verify Initialization in Training Logs**
+4. **Launch Training with the Correct Configuration**
    
-   Check the training logs to ensure that the pretrained weights are loaded correctly:
+   - **To Start with Pretrained Weights**:
+     
+     ```bash
+     torchrun --nproc_per_node=4 dinov2/train/train.py \
+       --config-file dinov2/configs/ssl_default_config.yaml \
+       --output-dir dinov2/temp_logs/bbu_test \
+       --no-resume
+     ```
    
-   ```
-   [INFO] Loaded pretrained weights from /path/to/pretrained/student_weights.pth
-   ```
+   - **To Resume from a Checkpoint**:
+     
+     ```bash
+     torchrun --nproc_per_node=4 dinov2/train/train.py \
+       --config-file dinov2/temp_logs/bbu_test/config.yaml
+     ```
+     *Note: The `--no-resume` flag is omitted to enable resuming.*
 
-#### Example Workflow
+5. **Verify Initialization in Training Logs**
+   
+   - **For Pretrained Weights**:
+     ```
+     [INFO] Loaded pretrained weights from /path/to/pretrained/hub_student_weights.pth
+     ```
+   
+   - **For Resuming Training**:
+     ```
+     [INFO] Rank 0: Resumed training from checkpoint dinov2/temp_logs/bbu_test/model_0011249.rank_0.pth at epoch 10, iteration 1000
+     [INFO] Rank 1: Resumed training from checkpoint dinov2/temp_logs/bbu_test/model_0011249.rank_1.pth at epoch 10, iteration 1000
+     # ... and so on for other ranks
+     ```
 
-- **Starting Fresh with Pretrained Backbone**:
-  
+#### Key Differences
+
+| Feature                     | `MODEL.WEIGHTS`                              | `student.pretrained_weights`                         |
+|-----------------------------|----------------------------------------------|-------------------------------------------------------|
+| **Purpose**                 | Resume training from a specific checkpoint   | Initialize the student model with pretrained weights   |
+| **Target Model**            | **Student** model's sharded checkpoints     | **Student** model's backbone                          |
+| **Checkpoint Structure**    | Directory with sharded (`model_{step}.rank_{rank}.pth`) files or specific `.pth` file | Single `.pth` file containing the backbone weights     |
+| **Usage Scenario**          | Continuing training or distributed evaluation | Enhancing model initialization with pre-trained data    |
+| **Loading Mechanism**       | Handled by `FSDPCheckpointer` in `train/train.py` | Specified in `dinov2/configs/ssl_default_config.yaml` |
+
+### Fully Sharded Data Parallel (FSDP)
+
+The original DINOv2 implementation utilizes **Fully Sharded Data Parallel (FSDP)** to efficiently manage and distribute model parameters across multiple GPUs during training. Here's how to accommodate resuming training with FSDP:
+
+1. **Update Configuration Files**: Ensure that your configuration YAML files are set correctly.
+   
+   - **For Resuming Training**:
+     
+     ```yaml
+     MODEL:
+       WEIGHTS: dinov2/temp_logs/bbu_test  # Directory with sharded checkpoints
+     ```
+   
+   - **For Loading Pretrained Weights**:
+     
+     ```yaml
+     MODEL:
+       WEIGHTS: /path/to/pretrained/hub_student_weights.pth  # Path to a single .pth file
+     ```
+
+2. **Ensure `train/train.py` Handles Resuming Correctly**
+   - The `FSDPCheckpointer.resume_or_load` method in `train/train.py` manages loading checkpoints based on the `resume` flag and `MODEL.WEIGHTS`.
+   - **No Modifications to `train/train.py` Needed**: The existing implementation already satisfies the required functionality.
+
+3. **Ensure Consistency Across Ranks**
+   - All GPU ranks must have access to the correct `MODEL.WEIGHTS` path.
+   - When resuming, `FSDPCheckpointer` automatically maps each GPU rank to its corresponding sharded checkpoint file.
+
+4. **Test Resumption Mechanism**
+   - **Save a Checkpoint**: Initiate a training run and allow it to save checkpoints periodically.
+   - **Resume Training**: Run the training script with `NO_RESUME=false` and verify that training resumes from the last saved checkpoint.
+   - **Verify Logs**: Ensure that each GPU rank logs a message indicating successful checkpoint loading.
+
+---
+
+## **Additional Clarifications**
+
+### **1. How to Tell if `MODEL.WEIGHTS` Accepts Both Directory and `.pth` File Paths**
+
+The acceptance of both directory paths and specific `.pth` file paths by `MODEL.WEIGHTS` is primarily determined by how the `resume_or_load` method in `FSDPCheckpointer` is implemented. Here's how you can identify this flexibility:
+
+- **Directory Path Usage**:
+  - When `MODEL.WEIGHTS` is set to a directory, the `resume_or_load` method searches for the `last_checkpoint.rank_{rank}.pth` file within that directory.
+  - It then appropriately loads the corresponding sharded checkpoint file for each GPU rank.
+
+- **Specific `.pth` File Path Usage**:
+  - When `MODEL.WEIGHTS` points directly to a `.pth` file, the `resume_or_load` method treats it as a specific checkpoint file to load for the corresponding GPU rank.
+
+**Code Insight**:
+
+In the `FSDPCheckpointer` class (`dinov2/fsdp/__init__.py`), the `load` method within `resume_or_load` utilizes `super().load(*args, **kwargs)` from `fvcore.common.checkpoint.Checkpointer`. The `Checkpointer` class in `fvcore` is designed to handle both directory paths and specific file paths, thereby providing the necessary flexibility.
+
+### **2. Practical Implications for Configuration**
+
+- **Resuming Training**:
   - **Configuration**:
     ```yaml
-    student:
-      pretrained_weights: /path/to/pretrained/student_weights.pth
-    train:
-      resume: false
+    MODEL:
+      WEIGHTS: dinov2/temp_logs/bbu_test  # Directory with sharded checkpoints
     ```
-  
-  - **Command**:
+  - **Training Script (`train.sh`)**:
     ```bash
-    torchrun --nproc_per_node=4 train/train.py --config /path/to/config.yaml
+    NO_RESUME=false  # Enable resuming
     ```
+  - **Behavior**:
+    - Automatically loads the latest sharded checkpoints for each GPU rank from the specified directory.
+    - Maintains synchronized training across all GPUs.
 
-- **Resuming Training from Checkpoint**:
-  
+- **Loading Pretrained Weights**:
   - **Configuration**:
     ```yaml
-    student:
-      pretrained_weights: /path/to/pretrained/student_weights.pth  # Optional if continuing from checkpoint
-    train:
-      resume: true
-      resume_path: /data/training_code/Pein/dinov2/temp_logs/bbu_test/model_0011249.rank_{rank}.pth
+    MODEL:
+      WEIGHTS: /path/to/pretrained/hub_student_weights.pth  # Specific pretrained weights file
     ```
-  
-  - **Command**:
+  - **Training Script (`train.sh`)**:
     ```bash
-    torchrun --nproc_per_node=4 train/train.py --config /path/to/config.yaml
+    NO_RESUME=true  # Disable resuming to load pretrained weights
     ```
+  - **Behavior**:
+    - Initializes the student model's backbone with the specified pretrained weights.
+    - Does not attempt to load any sharded checkpoints, effectively starting fresh training with the pretrained initialization.
 
-**Note**: When resuming training, `student.pretrained_weights` is optional and typically not needed unless you are switching pretrained backbones mid-training, which is uncommon.
+---
 
-## Additional Notes
+## **Conclusion**
 
-- **Consistency Across Ranks**: Ensure that all GPU ranks are provided with consistent paths to either the pretrained weights or the checkpoint files to prevent discrepancies during distributed training.
-  
-- **Checkpoint Integrity**: Always verify the integrity of your checkpoint files before resuming training to avoid loading corrupted or incomplete states.
+Understanding the distinct roles of `MODEL.WEIGHTS` and `student.pretrained_weights` is crucial for effectively managing training workflows in the `dinov2` codebase:
 
-- **Logging and Monitoring**: Implement comprehensive logging to monitor the loading of weights and resumptions to facilitate debugging and ensure smooth training workflows.
+- **Use `MODEL.WEIGHTS`** to **resume training** from sharded checkpoints in a distributed setup.
+- **Use `student.pretrained_weights`** to **initialize the student model** with pretrained weights before starting or continuing training.
+
+The `MODEL.WEIGHTS` parameter's versatility in accepting both directory paths and specific `.pth` file paths, combined with the robust implementation of the `FSDPCheckpointer`, ensures seamless integration for both resuming training and initializing with pretrained weights.
+
+By following the outlined configurations and best practices, you can efficiently manage training states, leverage pretrained models, and maintain consistency across distributed training environments.
+
+Feel free to reach out if you need further assistance or additional clarifications!
 
 ## Model Saving and Loading
 
@@ -466,26 +517,33 @@ If you want to utilize a pretrained DINOv2 backbone for your student model, foll
 DINOv2 employs **Fully Sharded Data Parallel (FSDP)** to efficiently manage and distribute model parameters across multiple GPUs during training. This approach enables scalable training of large models by sharding parameters and optimizer states.
 
 #### Student Model Checkpoints
-
 - **Format**: `model_{step}.rank_{rank}.pth`
 - **Description**: These are sharded checkpoints of the **student** model, where `{step}` denotes the training iteration, and `{rank}` represents the GPU rank.
 - **Saving Mechanism**:
-  - Managed by the `FSDPCheckpointer` class within `train.py`.
-  - Periodically saved based on the `PeriodicCheckpointer` configuration.
+  - Managed by the `FSDPCheckpointer` class within `train/train.py`.
+  - Periodically saved based on the `saveckp_freq` configuration.
 
 #### Teacher Model Checkpoints
-
 - **File Name**: `teacher_checkpoint.pth`
 - **Description**: This checkpoint contains the state dictionary of the **teacher** model, which is an Exponential Moving Average (EMA) of the student model. The teacher provides stable targets for self-supervised learning.
 - **Saving Mechanism**:
-  - Handled by the `do_test` function in `train.py` during evaluation phases.
+  - Handled by the evaluation functions in `train/train.py` during evaluation phases.
   - Saved under the directory structure: `/eval/training_{epoch}/teacher_checkpoint.pth`.
 
 ### Loading Models
 
 #### Loading Sharded Student Model Checkpoints
+To resume training or perform distributed evaluation, load the sharded student checkpoints by setting the `MODEL.WEIGHTS` parameter in your configuration to the desired checkpoint path. For multi-GPU setups, ensure that `MODEL.WEIGHTS` points to the directory containing all rank-specific checkpoint files.
 
-To resume training or perform distributed evaluation, load the sharded student checkpoints using the `FSDPCheckpointer`.
+```yaml
+MODEL:
+  WEIGHTS: dinov2/temp_logs/bbu_test/model_checkpoint.rank_{rank}.pth
+```
+
+Ensure that `train/train.py` correctly handles loading the checkpoint as demonstrated in the [Checkpointing: Saving and Loading](#checkpointing-saving-and-loading) section.
+
+#### Loading Teacher Model Checkpoints
+Teacher model checkpoints are automatically managed during evaluation phases. Ensure that the checkpoint paths are correctly specified in the evaluation configurations if custom handling is required.
 
 ## Summary
-This document outlines the implementation and adaptation of DINOv2 for a custom industrial dataset, detailing the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.
+This document outlines the implementation and adaptation of DINOv2 for a custom BBU dataset, focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering. It details the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.
