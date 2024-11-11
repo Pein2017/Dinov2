@@ -1,0 +1,15 @@
+build/
+dist/
+*.egg-info/
+**/__pycache__/
+
+**/.ipynb_checkpoints
+**/.ipynb_checkpoints/**
+
+*.swp
+
+.vscode/
+
+# ingore the folder of ./bbu_full_dataset and bbu_logs
+bbu_full_dataset/
+bbu_logs/

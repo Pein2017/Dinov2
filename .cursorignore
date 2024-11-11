@@ -1,0 +1,9 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# Ignore all files
+*
+
+# Allow Python files
+!*.py
+!dinov2/dinov2.md
+!*.yaml
