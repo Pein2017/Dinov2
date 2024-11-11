@@ -235,6 +235,21 @@ def do_train(cfg, model, resume=False):
         collate_fn=collate_fn,
     )
 
+    # Setup validation data loader
+    validation_dataset = make_dataset(
+        dataset_str=cfg.validation.dataset_path,
+        transform=data_transform,  # Use appropriate transforms
+        target_transform=lambda _: (),
+    )
+    validation_loader = make_data_loader(
+        dataset=validation_dataset,
+        batch_size=cfg.validation.batch_size_per_gpu,
+        num_workers=cfg.validation.num_workers,
+        shuffle=False,
+        sampler_type=SamplerType.EPOCH,  # Or another appropriate sampler
+        drop_last=False,
+    )
+
     # training loop
 
     iteration = start_iter
@@ -263,6 +278,9 @@ def do_train(cfg, model, resume=False):
         current_batch_size = data["collated_global_crops"].shape[0] / 2
         if iteration > max_iter:
             return
+
+        # Calculate current epoch
+        current_epoch = iteration // OFFICIAL_EPOCH_LENGTH
 
         # apply schedules
 
@@ -318,17 +336,26 @@ def do_train(cfg, model, resume=False):
         metric_logger.update(current_batch_size=current_batch_size)
         metric_logger.update(total_loss=losses_reduced, **loss_dict_reduced)
 
+        # Log epoch to TensorBoard
+        if writer:
+            writer.add_scalar("Epoch", current_epoch, iteration)
+
+        # Log learning rates to TensorBoard
+        if writer:
+            writer.add_scalar("Scheduler/Learning_Rate", lr, iteration)
+
         # Log training metrics to TensorBoard only from the main process
         if writer:
             for key, value in loss_dict_reduced.items():
-                writer.add_scalar(f"Loss/{key}", value, iteration)
+                writer.add_scalar(f"train/{key}", value, iteration)
+            writer.add_scalar("train/total_loss", losses_reduced, iteration)
 
         # checkpointing and testing
-
         if (
             cfg.evaluation.eval_period_iterations > 0
             and (iteration + 1) % cfg.evaluation.eval_period_iterations == 0
         ):
+            validate(cfg, model, validation_loader, writer, iteration)
             do_test(cfg, model, f"training_{iteration}")
             torch.cuda.synchronize()
         periodic_checkpointer.step(iteration)
@@ -341,6 +368,35 @@ def do_train(cfg, model, resume=False):
         writer.close()
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+def validate(cfg, model, validation_loader, writer, iteration):
+    model.eval()
+    total_loss_dict = {}
+    num_batches = 0
+
+    with torch.no_grad():
+        for data in validation_loader:
+            # Compute validation losses without backpropagation
+            loss_dict = model.validate_batch(data, teacher_temp=cfg.teacher.teacher_temp)
+            
+            # Accumulate losses
+            for loss_name, loss_value in loss_dict.items():
+                if loss_name not in total_loss_dict:
+                    total_loss_dict[loss_name] = 0.0
+                total_loss_dict[loss_name] += loss_value.item()
+            num_batches += 1
+
+    # Calculate average losses
+    avg_loss_dict = {k: v / num_batches for k, v in total_loss_dict.items()}
+
+    # Log average validation metrics to TensorBoard
+    if writer:
+        for loss_name, avg_loss in avg_loss_dict.items():
+            writer.add_scalar(f"val/{loss_name}", avg_loss, iteration)
+        writer.add_scalar("val/total_loss", sum(avg_loss_dict.values()), iteration)
+
+    model.train()
 
 
 def main(args):

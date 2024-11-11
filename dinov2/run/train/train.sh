@@ -31,9 +31,6 @@ if [ ! -f "$CONFIG_FILE" ]; then
     exit 1
 fi  
 
-# Remove TEMP_LOG_DIR if it exists to clean previous logs
-rm -rf "$TEMP_LOG_DIR"
-
 # Create necessary directories
 mkdir -p "$TEMP_LOG_DIR"
 
@@ -47,16 +44,19 @@ echo "Updated Python path: $PYTHONPATH"
 # Record start time
 start_time=$(date +%s)
 
+# Initialize TORCHRUN_ARGS as empty
+TORCHRUN_ARGS=""
+
 # Handle --no-resume flag
 if [ "$NO_RESUME" = true ]; then
-    TORCHRUN_ARGS+=" --no-resume"
+    TORCHRUN_ARGS="--no-resume"
 fi
 
 # Launch torchrun without exec to ensure proper process handling
 torchrun --nnodes=1 --nproc_per_node=$GPUS_PER_NODE "$PYTHON_SCRIPT" \
     --config-file "$CONFIG_FILE" \
     --output-dir "$OUTPUT_DIR" \
-    $TORCHRUN_ARGS \
+    ${TORCHRUN_ARGS:+"$TORCHRUN_ARGS"} \
     2>&1 | tee "$TEMP_LOG_DIR/training.log"
 
 # Calculate training time

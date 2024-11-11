@@ -5,5 +5,5 @@
 
 # Allow Python files
 !*.py
-!dinov2/dinov2.md
+!README.md
 !*.yaml
