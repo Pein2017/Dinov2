@@ -1,17 +1,17 @@
 # this corresponds to the default config
 
 # MODEL:
-#   WEIGHTS: bbu_logs/bbu_vits14-bs_256/eval/training_7849/teacher_checkpoint.pth
+  # WEIGHTS: bbu_logs/bbu_vits14-bs_64
 
 train:
   dataset_path: BBU:root=./bbu_full_dataset:split=train
-  batch_size_per_gpu: 256
+  batch_size_per_gpu: 128
   saveckp_freq: 200
   seed: 17
   num_workers: 8
-  OFFICIAL_EPOCH_LENGTH: 50
+  OFFICIAL_EPOCH_LENGTH: 32 # For batch size per gpu = 64, set to be 500. 500 / (double * 8 ) = 500/16 = 32
   centering: "centering" # or "sinkhorn_knopp"
-  output_dir: 'bbu_logs/bbu_vits14-bs_256'
+  output_dir: 'bbu_logs/bbu-vitb14-bs_pergpu_128-lr_1e-4'
 validation:
   dataset_path: BBU:root=./bbu_full_dataset:split=val
   batch_size_per_gpu: 512
@@ -19,12 +19,21 @@ validation:
 
 student:
   block_chunks: 4
-  arch: vit_small
+  arch: vit_base
   patch_size: 14
-  pretrained_weights: bbu_logs/bbu_vits14-bs_256/eval/training_7849/teacher_checkpoint.pth
+
+teacher:
+  warmup_teacher_temp_epochs: 30
 
 crops:
   local_crops_size: 98
 
 evaluation:
-  eval_period_iterations: 250
+  eval_period_iterations: 400
+
+optim:
+  epochs: 100
+  base_lr: 0.004  # learning rate for a batch size of 1024
+  lr: 0.  # will be set after applying scaling rule
+  warmup_epochs: 10
+  min_lr: 1.0e-06

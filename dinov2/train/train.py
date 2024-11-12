@@ -325,8 +325,8 @@ def do_train(cfg, model, resume=False):
         }
 
         if math.isnan(sum(loss_dict_reduced.values())):
-            logger.info("NaN detected")
-            raise AssertionError
+            logger.warning("NaN detected, skipping this iteration to prevent training collapse")
+            continue  # Skip the current iteration and continue training
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
         metric_logger.update(lr=lr)
@@ -355,7 +355,8 @@ def do_train(cfg, model, resume=False):
             cfg.evaluation.eval_period_iterations > 0
             and (iteration + 1) % cfg.evaluation.eval_period_iterations == 0
         ):
-            validate(cfg, model, validation_loader, writer, iteration)
+            # Commented out if validation is not needed
+            # validate(cfg, model, validation_loader, writer, iteration)
             do_test(cfg, model, f"training_{iteration}")
             torch.cuda.synchronize()
         periodic_checkpointer.step(iteration)

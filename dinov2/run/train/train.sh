@@ -15,11 +15,14 @@ GPUS_PER_NODE=8
 
 # Navigate to the project root directory
 CONFIG_FILE="dinov2/configs/train/vits14.yaml"
-TEMP_LOG_DIR="bbu_logs/bbu_vits14-bs_256"
+TEMP_LOG_DIR="bbu_logs/bbu-vitb14-bs_pergpu_128"
 NO_RESUME=true
 
 PYTHON_SCRIPT="dinov2/train/train.py"
 OUTPUT_DIR="$TEMP_LOG_DIR"
+
+# Define a new port to avoid address in use error
+PORT=29502  
 
 # Print debug information
 echo "Current directory: $PROJECT_DIR"
@@ -52,8 +55,10 @@ if [ "$NO_RESUME" = true ]; then
     TORCHRUN_ARGS="--no-resume"
 fi
 
-# Launch torchrun without exec to ensure proper process handling
-torchrun --nnodes=1 --nproc_per_node=$GPUS_PER_NODE "$PYTHON_SCRIPT" \
+# Launch torchrun with the new master port
+torchrun --nnodes=1 --nproc_per_node=$GPUS_PER_NODE \
+    --master_port=$PORT \
+    "$PYTHON_SCRIPT" \
     --config-file "$CONFIG_FILE" \
     --output-dir "$OUTPUT_DIR" \
     ${TORCHRUN_ARGS:+"$TORCHRUN_ARGS"} \

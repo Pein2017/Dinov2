@@ -481,9 +481,9 @@ class SSLMetaArch(nn.Module):
             torch._foreach_mul_(teacher_param_list, m)
             torch._foreach_add_(teacher_param_list, student_param_list, alpha=1 - m)
 
-    def train(self):
-        super().train()
-        self.teacher.eval()
+    def train(self, mode=True):
+        super().train(mode)
+        self.teacher.eval()  # Ensure teacher is always in eval mode
 
     def get_maybe_fused_params_for_submodel(self, m):
         params_groups = get_params_groups_with_decay(
@@ -520,12 +520,12 @@ class SSLMetaArch(nn.Module):
                 teacher_model_cfg, modules_to_wrap={BlockChunk}
             )(self.teacher[k])
 
-    def validate_batch(self, images, teacher_temp):
+    def validate_batch(self, data, teacher_temp):
         """
         Compute validation loss without backpropagation.
 
         Args:
-            images (dict): Batch of input images.
+            data (list): Batch of input images.
             teacher_temp (float): Temperature parameter for the teacher model.
 
         Returns:
@@ -535,15 +535,15 @@ class SSLMetaArch(nn.Module):
         assert n_global_crops == 2
         n_local_crops = self.cfg.crops.local_crops_number
 
-        global_crops = images["collated_global_crops"].cuda(non_blocking=True)
-        local_crops = images["collated_local_crops"].cuda(non_blocking=True)
+        global_crops = data["collated_global_crops"].cuda(non_blocking=True)
+        local_crops = data["collated_local_crops"].cuda(non_blocking=True)
 
-        masks = images["collated_masks"].cuda(non_blocking=True)
-        mask_indices_list = images["mask_indices_list"].cuda(non_blocking=True)
-        n_masked_patches_tensor = images["n_masked_patches"].cuda(non_blocking=True)
+        masks = data["collated_masks"].cuda(non_blocking=True)
+        mask_indices_list = data["mask_indices_list"].cuda(non_blocking=True)
+        n_masked_patches_tensor = data["n_masked_patches"].cuda(non_blocking=True)
         n_masked_patches = mask_indices_list.shape[0]
-        upperbound = images["upperbound"]
-        masks_weight = images["masks_weight"].cuda(non_blocking=True)
+        upperbound = data["upperbound"]
+        masks_weight = data["masks_weight"].cuda(non_blocking=True)
 
         n_local_crops_loss_terms = max(n_local_crops * n_global_crops, 1)
         n_global_crops_loss_terms = (n_global_crops - 1) * n_global_crops
