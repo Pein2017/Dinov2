@@ -547,3 +547,7 @@ Teacher model checkpoints are automatically managed during evaluation phases. En
 
 ## Summary
 This document outlines the implementation and adaptation of DINOv2 for a custom BBU dataset, focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering. It details the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.
+
+## Configuration Files and Key Modules
+- **`optim.epochs`**: Specifies the total number of training epochs. This determines how many times the entire dataset is processed during the training phase.
+- **`train.OFFICIAL_EPOCH_LENGTH`**: Defines the number of iterations per epoch when using the `InfiniteSampler` setting. For example, setting `OFFICIAL_EPOCH_LENGTH=500` with `batch_size_per_gpu=64` serves as a baseline for further tuning to control the total number of training iterations.
