@@ -9,24 +9,24 @@ Implement and adapt DINOv2, a self-supervised learning framework, for industrial
    - [Directory Structure](#directory-structure)
    - [Annotations](#annotations)
 3. [Project Focus](#project-focus)
-4. [Self-Supervised Learning with DINOv2](#self-supervised-learning-with-dinov2)
+4. [Codebase Structure and Key Modules](#codebase-structure-and-key-modules)
+5. [Self-Supervised Learning with DINOv2](#self-supervised-learning-with-dinov2)
    - [1. Data Preparation and Augmentation](#1-data-preparation-and-augmentation)
    - [2. Model Architecture](#2-model-architecture)
    - [3. Training Process](#3-training-process)
    - [4. Evaluation and Fine-Tuning](#4-evaluation-and-fine-tuning)
    - [5. Optimization and Deployment](#5-optimization-and-deployment)
-5. [Codebase Structure and Key Modules](#codebase-structure-and-key-modules)
 6. [Pipeline Sequence and Corresponding Code Components](#pipeline-sequence-and-corresponding-code-components)
-7. [Flowchart Representation](#flowchart-representation)
-8. [Training Procedure](#training-procedure)
+7. [Training Procedure](#training-procedure)
    - [Overview](#overview)
    - [Steps Involved](#steps-involved)
    - [Multi-GPU Training Strategy](#multi-gpu-training-strategy)
    - [Checkpointing: Saving and Loading](#checkpointing-saving-and-loading)
    - [Loading Pretrained Weights](#loading-pretrained-weights)
    - [Fully Sharded Data Parallel (FSDP)](#fully-sharded-data-parallel-fsdp)
-9. [Additional Notes](#additional-notes)
-10. [Model Saving and Loading](#model-saving-and-loading)
+8. [Model Saving and Loading](#model-saving-and-loading)
+9. [Flowchart Representation](#flowchart-representation)
+10. [Configuration Files and Key Modules](#configuration-files-and-key-modules)
 11. [Summary](#summary)
 
 ## Overview of DINOv2
@@ -89,6 +89,18 @@ This structure groups images by `group_id`, facilitating effective training and 
 - **Understand DINOv2's Architecture**: Gain a comprehensive understanding of DINOv2's components and their interactions.
 - **Adapt Framework for Custom Dataset**: Modify the self-supervised learning framework to accommodate a custom industrial quality inspection dataset.
 - **Optimize Feature Extraction**: Enhance feature extraction capabilities tailored specifically for manufacturing defect detection.
+
+## Codebase Structure and Key Modules
+- **`models/vision_transformer.py`**: Implements the ViT backbone with `DinoVisionTransformer`.
+- **`hub/depthers.py` & `hub/backbones.py`**: Factory functions for depth heads and backbone models.
+- **`train/ssl_meta_arch.py`**: Defines the `SSLMetaArch` class for the student-teacher training paradigm.
+- **`train/train.py`**: Contains the training loop, data loading, and checkpoint management.
+- **`eval/utils.py`**: Utilities for evaluation, including normalization wrappers.
+- **`layers/dino_head.py`**: Defines the `DINOHead` class.
+- **`loss/dino_clstoken_loss.py`**: Implements the `DINOLoss` class.
+- **`dinov2/data/augmentations.py` & `dinov2/data/datasets/bbu_data.py`**: Handle data augmentation and dataset loading.
+- **`run/train/train.py`**: Facilitates training job submissions.
+- **Configuration Files (`dinov2/configs/*.yaml`)**: Manage hyperparameters and model settings.
 
 ## Self-Supervised Learning with DINOv2
 
@@ -158,18 +170,6 @@ This structure groups images by `group_id`, facilitating effective training and 
   - `hub/decode_heads.py`: Defines decoding mechanisms for deployment tasks.
   - `run/train/train.py`: Handles training job submissions for deployment workflows.
 
-## Codebase Structure and Key Modules
-- **`models/vision_transformer.py`**: Implements the ViT backbone with `DinoVisionTransformer`.
-- **`hub/depthers.py` & `hub/backbones.py`**: Factory functions for depth heads and backbone models.
-- **`train/ssl_meta_arch.py`**: Defines the `SSLMetaArch` class for the student-teacher training paradigm.
-- **`train/train.py`**: Contains the training loop, data loading, and checkpoint management.
-- **`eval/utils.py`**: Utilities for evaluation, including normalization wrappers.
-- **`layers/dino_head.py`**: Defines the `DINOHead` class.
-- **`loss/dino_clstoken_loss.py`**: Implements the `DINOLoss` class.
-- **`dinov2/data/augmentations.py` & `dinov2/data/datasets/bbu_data.py`**: Handle data augmentation and dataset loading.
-- **`run/train/train.py`**: Facilitates training job submissions.
-- **Configuration Files (`dinov2/configs/*.yaml`)**: Manage hyperparameters and model settings.
-
 ## Pipeline Sequence and Corresponding Code Components
 1. **Data Collection and Preparation**
    - `dinov2/data/datasets/bbu_data.py`
@@ -192,47 +192,6 @@ This structure groups images by `group_id`, facilitating effective training and 
 7. **Model Optimization and Deployment**
    - `hub/decode_heads.py`
    - `run/train/train.py`
-
-## Flowchart Representation
-```mermaid
-graph TD
-    A[Data Collection and Preparation] --> B[Data Augmentation and Normalization]
-    B --> C[Model Initialization]
-    C --> D[Feature Extraction]
-    D --> E[Loss Computation and Optimization]
-    E --> F[Evaluation and Fine-Tuning]
-    F --> G[Model Optimization and Deployment]
-    
-    subgraph Data Preparation
-        A
-        B
-    end
-    
-    subgraph Model Setup
-        C
-    end
-    
-    subgraph Training
-        D
-        E
-    end
-    
-    subgraph Evaluation
-        F
-    end
-    
-    subgraph Deployment
-        G
-    end
-```
-**Explanation:**
-1. **Data Collection and Preparation**: Gather and prepare industrial quality control images.
-2. **Data Augmentation and Normalization**: Apply augmentations to enhance data diversity and normalize inputs.
-3. **Model Initialization**: Initialize teacher and student vision transformer models.
-4. **Feature Extraction**: Extract features using the student model and project them into latent space.
-5. **Loss Computation and Optimization**: Calculate DINO loss and update model parameters through optimization.
-6. **Evaluation and Fine-Tuning**: Assess model performance using linear classifiers and k-NN evaluations.
-7. **Model Optimization and Deployment**: Optimize the model for deployment, integrating it into pipelines for real-time inference.
 
 ## Training Procedure
 
@@ -545,9 +504,50 @@ Ensure that `train/train.py` correctly handles loading the checkpoint as demonst
 #### Loading Teacher Model Checkpoints
 Teacher model checkpoints are automatically managed during evaluation phases. Ensure that the checkpoint paths are correctly specified in the evaluation configurations if custom handling is required.
 
-## Summary
-This document outlines the implementation and adaptation of DINOv2 for a custom BBU dataset, focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering. It details the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.
-
 ## Configuration Files and Key Modules
 - **`optim.epochs`**: Specifies the total number of training epochs. This determines how many times the entire dataset is processed during the training phase.
 - **`train.OFFICIAL_EPOCH_LENGTH`**: Defines the number of iterations per epoch when using the `InfiniteSampler` setting. For example, setting `OFFICIAL_EPOCH_LENGTH=500` with `batch_size_per_gpu=64` serves as a baseline for further tuning to control the total number of training iterations.
+
+## Flowchart Representation
+```mermaid
+graph TD
+    A[Data Collection and Preparation] --> B[Data Augmentation and Normalization]
+    B --> C[Model Initialization]
+    C --> D[Feature Extraction]
+    D --> E[Loss Computation and Optimization]
+    E --> F[Evaluation and Fine-Tuning]
+    F --> G[Model Optimization and Deployment]
+    
+    subgraph Data Preparation
+        A
+        B
+    end
+    
+    subgraph Model Setup
+        C
+    end
+    
+    subgraph Training
+        D
+        E
+    end
+    
+    subgraph Evaluation
+        F
+    end
+    
+    subgraph Deployment
+        G
+    end
+```
+**Explanation:**
+1. **Data Collection and Preparation**: Gather and prepare industrial quality control images.
+2. **Data Augmentation and Normalization**: Apply augmentations to enhance data diversity and normalize inputs.
+3. **Model Initialization**: Initialize teacher and student vision transformer models.
+4. **Feature Extraction**: Extract features using the student model and project them into latent space.
+5. **Loss Computation and Optimization**: Calculate DINO loss and update model parameters through optimization.
+6. **Evaluation and Fine-Tuning**: Assess model performance using linear classifiers and k-NN evaluations.
+7. **Model Optimization and Deployment**: Optimize the model for deployment, integrating it into pipelines for real-time inference.
+
+## Summary
+This document outlines the implementation and adaptation of DINOv2 for a custom BBU dataset, focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering. It details the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.
