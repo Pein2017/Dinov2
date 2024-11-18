@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Define a default value to avoid unbound variable errors
+export MKL_INTERFACE_LAYER=${MKL_INTERFACE_LAYER:-GNU}
+
+
 # Set strict error handling
 set -e
 set -u
@@ -11,18 +15,28 @@ trap 'echo "Caught SIGINT or SIGTERM, terminating..."; kill -- -$$; exit 1' INT 
 
 # Define variables
 PROJECT_DIR="/data/training_code/Pein/dinov2"
-GPUS_PER_NODE=8  
+GPUS_PER_NODE=4
+
+# Add a variable to manually set CUDA devices. Set to "" to auto-detect.
+MANUAL_GPU_LIST="4,5,6,7"
+
+cd "$PROJECT_DIR"
 
 # Navigate to the project root directory
-CONFIG_FILE="dinov2/configs/train/vits14.yaml"
-TEMP_LOG_DIR="bbu_logs/bbu-vitb14-bs_pergpu_128"
+CONFIG_FILE=dinov2/configs/train/vits14.yaml
+
+# Define root and experiment names based on hyperparameters
+ROOT_LOG_DIR="joined_logs"
+EXPERIMENT_NAME="vitb14-total_bs_1024-lr_1e-2-epochs_20-epoch_len_500-warmup_2-teacher_warmup_3"
+LOG_DIR="$ROOT_LOG_DIR/$EXPERIMENT_NAME"
+
 NO_RESUME=true
 
 PYTHON_SCRIPT="dinov2/train/train.py"
-OUTPUT_DIR="$TEMP_LOG_DIR"
+OUTPUT_DIR="$LOG_DIR"
 
 # Define a new port to avoid address in use error
-PORT=29502  
+PORT=29502
 
 # Print debug information
 echo "Current directory: $PROJECT_DIR"
@@ -35,12 +49,12 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi  
 
 # Create necessary directories
-mkdir -p "$TEMP_LOG_DIR"
+mkdir -p "$LOG_DIR"
 
 # Set up Python path
 export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 
-echo "Training BBU model"
+echo "Training JOINED model"
 echo "Updated directory: $PROJECT_DIR"
 echo "Updated Python path: $PYTHONPATH"
 
@@ -55,6 +69,31 @@ if [ "$NO_RESUME" = true ]; then
     TORCHRUN_ARGS="--no-resume"
 fi
 
+# Initialize conda environment
+set +u
+source /opt/conda/etc/profile.d/conda.sh
+conda activate openmm
+set -u
+
+# Function to find available GPUs
+get_available_gpus() {
+    nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | \
+    awk '$1 < 1000 {print NR-1}' | paste -sd "," -
+}
+
+# Modify GPU selection logic to use manual list if provided
+if [ -n "$MANUAL_GPU_LIST" ]; then
+    AVAILABLE_GPUS="$MANUAL_GPU_LIST"
+    GPUS_PER_NODE=$(echo "$AVAILABLE_GPUS" | tr -cd ',' | wc -c)
+    GPUS_PER_NODE=$((GPUS_PER_NODE + 1))
+else
+    AVAILABLE_GPUS=$(get_available_gpus)
+    GPUS_PER_NODE=$(echo "$AVAILABLE_GPUS" | tr -cd ',' | wc -c)
+    GPUS_PER_NODE=$((GPUS_PER_NODE + 1))
+fi
+
+export CUDA_VISIBLE_DEVICES="$AVAILABLE_GPUS"
+
 # Launch torchrun with the new master port
 torchrun --nnodes=1 --nproc_per_node=$GPUS_PER_NODE \
     --master_port=$PORT \
@@ -62,7 +101,7 @@ torchrun --nnodes=1 --nproc_per_node=$GPUS_PER_NODE \
     --config-file "$CONFIG_FILE" \
     --output-dir "$OUTPUT_DIR" \
     ${TORCHRUN_ARGS:+"$TORCHRUN_ARGS"} \
-    2>&1 | tee "$TEMP_LOG_DIR/training.log"
+    2>&1 | tee "$LOG_DIR/training.log"
 
 # Calculate training time
 end_time=$(date +%s)

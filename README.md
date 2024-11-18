@@ -1,11 +1,11 @@
-# DINOv2 Implementation for Custom BBU Dataset
+# DINOv2 Implementation for Custom JOINED Dataset
 
 ## Objective
-Implement and adapt DINOv2, a self-supervised learning framework, for industrial quality control image analysis, specifically focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering.
+Implement and adapt DINOv2, a self-supervised learning framework, for industrial quality control image analysis, specifically focusing on the recognition of Baseband Unit (JOINED) devices in telecommunications engineering.
 
 ## Table of Contents
 1. [Overview of DINOv2](#overview-of-dinov2)
-2. [Custom BBU Dataset](#custom-bbu-dataset)
+2. [Custom JOINED Dataset](#custom-bbu-dataset)
    - [Directory Structure](#directory-structure)
    - [Annotations](#annotations)
 3. [Project Focus](#project-focus)
@@ -32,11 +32,11 @@ Implement and adapt DINOv2, a self-supervised learning framework, for industrial
 ## Overview of DINOv2
 DINOv2 leverages self-supervised learning to train vision transformers without labeled data, aiming to learn robust feature representations through its intricate architecture and training processes.
 
-## Custom BBU Dataset
+## Custom JOINED Dataset
 
 ### Directory Structure
 ```
-bbu_full_dataset/
+bbu_shield_cleaned/
     annotations/
         train.json
         val.json
@@ -98,7 +98,7 @@ This structure groups images by `group_id`, facilitating effective training and 
 - **`eval/utils.py`**: Utilities for evaluation, including normalization wrappers.
 - **`layers/dino_head.py`**: Defines the `DINOHead` class.
 - **`loss/dino_clstoken_loss.py`**: Implements the `DINOLoss` class.
-- **`dinov2/data/augmentations.py` & `dinov2/data/datasets/bbu_data.py`**: Handle data augmentation and dataset loading.
+- **`dinov2/data/augmentations.py` & `dinov2/data/datasets/joined_data.py`**: Handle data augmentation and dataset loading.
 - **`run/train/train.py`**: Facilitates training job submissions.
 - **Configuration Files (`dinov2/configs/*.yaml`)**: Manage hyperparameters and model settings.
 
@@ -113,7 +113,7 @@ This structure groups images by `group_id`, facilitating effective training and 
   - **Normalization**: Scale image data appropriately for model training.
 - **Implementation**:
   - `dinov2/data/augmentations.py`: Implements the `DataAugmentationDINO` class.
-  - `dinov2/data/datasets/bbu_data.py`: Defines the `BBUDataset` dataset class inherited from `ExtendedVisionDataset` for data loading and preprocessing.
+  - `dinov2/data/datasets/joined_data.py`: Defines the `JoinedDataset` dataset class inherited from `ExtendedVisionDataset` for data loading and preprocessing.
 
 ### 2. Model Architecture
 - **Vision Transformer (ViT) Backbone**:
@@ -172,7 +172,7 @@ This structure groups images by `group_id`, facilitating effective training and 
 
 ## Pipeline Sequence and Corresponding Code Components
 1. **Data Collection and Preparation**
-   - `dinov2/data/datasets/bbu_data.py`
+   - `dinov2/data/datasets/joined_data.py`
    - `dinov2/data/augmentations.py`
 2. **Data Augmentation and Normalization**
    - `dinov2/data/augmentations.py`
@@ -550,4 +550,4 @@ graph TD
 7. **Model Optimization and Deployment**: Optimize the model for deployment, integrating it into pipelines for real-time inference.
 
 ## Summary
-This document outlines the implementation and adaptation of DINOv2 for a custom BBU dataset, focusing on the recognition of Baseband Unit (BBU) devices in telecommunications engineering. It details the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.
+This document outlines the implementation and adaptation of DINOv2 for a custom JOINED dataset, focusing on the recognition of Baseband Unit (JOINED) devices in telecommunications engineering. It details the dataset structure, project focus, self-supervised learning components, codebase structure, training procedures, multi-GPU strategies, checkpointing mechanisms, and the model architecture. By following these guidelines, effective utilization of DINOv2 for industrial quality control image analysis can be achieved, ensuring robust feature extraction and scalable deployment.

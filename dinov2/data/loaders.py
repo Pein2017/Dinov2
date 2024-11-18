@@ -5,12 +5,12 @@
 
 import logging
 from enum import Enum
-from typing import Any, Callable, List, Optional, TypeVar
+from typing import Any, Callable, List, Optional, TypeVar, Union
 
 import torch
 from torch.utils.data import Sampler
 
-from .datasets import ImageNet, ImageNet22k, BBUDataset
+from .datasets import ImageNet, ImageNet22k, JoinedDataset
 from .samplers import EpochSampler, InfiniteSampler, ShardedInfiniteSampler
 
 
@@ -49,7 +49,7 @@ def _parse_dataset_str(dataset_str: str):
 
     for token in tokens[1:]:
         key, value = token.split("=")
-        assert key in ("root", "extra", "split")
+        assert key in ("root", "extra", "split"), f"Unsupported key '{key}' in dataset string."
         kwargs[key] = value
 
     if name == "ImageNet":
@@ -58,8 +58,8 @@ def _parse_dataset_str(dataset_str: str):
             kwargs["split"] = ImageNet.Split[kwargs["split"]]
     elif name == "ImageNet22k":
         class_ = ImageNet22k
-    elif name == "BBU":
-        class_ = BBUDataset
+    elif name == "JOINED":
+        class_ = JoinedDataset
     else:
         raise ValueError(f'Unsupported dataset "{name}"')
 
@@ -68,25 +68,55 @@ def _parse_dataset_str(dataset_str: str):
 
 def make_dataset(
     *,
-    dataset_str: str,
+    dataset_str: Union[str, List[str]],
     transform: Optional[Callable] = None,
     target_transform: Optional[Callable] = None,
 ):
     """
-    Creates a dataset with the specified parameters.
+    Creates one or multiple datasets with the specified parameters.
 
     Args:
-        dataset_str: A dataset string description (e.g. ImageNet:split=TRAIN).
+        dataset_str: A dataset string description or a list of descriptions 
+                     (e.g., ["JOINED:root=./data1:split=train", "JOINED:root=./data2:split=train"]).
         transform: A transform to apply to images.
         target_transform: A transform to apply to targets.
 
     Returns:
-        The created dataset.
+        A concatenated dataset if a list is provided, otherwise the created dataset.
     """
-    logger.info(f'using dataset: "{dataset_str}"')
+    logger.info(f'Using dataset(s): "{dataset_str}"')
 
-    class_, kwargs = _parse_dataset_str(dataset_str)
-    dataset = class_(transform=transform, target_transform=target_transform, **kwargs)
+    if isinstance(dataset_str, list):
+        data_dirs_list = []
+        split = None
+
+        for ds_str in dataset_str:
+            print(f"Processing dataset string: {ds_str}")
+            class_, kwargs = _parse_dataset_str(ds_str)
+            if class_ != JoinedDataset:
+                raise ValueError("All datasets in the list must be of type 'JOINED'.")
+
+            # Ensure all splits are the same
+            current_split = kwargs.get("split")
+            if split is None:
+                split = current_split
+            elif split != current_split:
+                raise ValueError("All datasets must have the same split.")
+
+            root = kwargs.get("root")
+            if root is None:
+                raise ValueError("Each dataset string must specify a 'root'.")
+            data_dirs_list.append(root)
+
+        dataset = JoinedDataset(
+            data_dirs_list=data_dirs_list,
+            split=split,
+            transform=transform,
+            target_transform=target_transform
+        )
+    else:
+        class_, kwargs = _parse_dataset_str(dataset_str)
+        dataset = class_(transform=transform, target_transform=target_transform, **kwargs)
 
     logger.info(f"# of dataset samples: {len(dataset):,d}")
 

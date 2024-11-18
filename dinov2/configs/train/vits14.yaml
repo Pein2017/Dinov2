@@ -2,38 +2,42 @@
 
 # MODEL:
   # WEIGHTS: bbu_logs/bbu_vits14-bs_64
-
 train:
-  dataset_path: BBU:root=./bbu_full_dataset:split=train
-  batch_size_per_gpu: 128
-  saveckp_freq: 200
+  dataset_path:
+    - JOINED:root=./mixed_data_root/bbu_shield_cleaned:split=train
+    - JOINED:root=./mixed_data_root/bbu_groundind_wire_cleaned:split=train
+    - JOINED:root=./mixed_data_root/integrated_cabinet_power_supply_cleaned:split=train
+  batch_size_per_gpu: 256
+  saveckp_freq: 2000
   seed: 17
   num_workers: 8
-  OFFICIAL_EPOCH_LENGTH: 32 # For batch size per gpu = 64, set to be 500. 500 / (double * 8 ) = 500/16 = 32
+  OFFICIAL_EPOCH_LENGTH: 500  # ignored for distributed sampler
   centering: "centering" # or "sinkhorn_knopp"
-  output_dir: 'bbu_logs/bbu-vitb14-bs_pergpu_128-lr_1e-4'
-validation:
-  dataset_path: BBU:root=./bbu_full_dataset:split=val
-  batch_size_per_gpu: 512
-  num_workers: 8
+  output_dir: 'joined_logs/vitb14-total_bs_1024-lr_1e-2-epochs_20-epoch_len_500-warmup_2-teacher_warmup_3'
+  # sampler_type: DISTRIBUTED
+
+optim:
+  epochs: 20
+  base_lr: 1.0e-02
+  warmup_epochs: 2
+  min_lr: 1.0e-06
+
+# validation:
+#   dataset_path: JOINED:root=./bbu_shield_cleaned:split=val
+#   batch_size_per_gpu: 512
+#   num_workers: 8
+#   sampler_type: EPOCH
 
 student:
   block_chunks: 4
   arch: vit_base
   patch_size: 14
-
 teacher:
-  warmup_teacher_temp_epochs: 30
+  warmup_teacher_temp_epochs: 3
 
 crops:
   local_crops_size: 98
 
 evaluation:
-  eval_period_iterations: 400
+  eval_period_iterations: 2000
 
-optim:
-  epochs: 100
-  base_lr: 0.004  # learning rate for a batch size of 1024
-  lr: 0.  # will be set after applying scaling rule
-  warmup_epochs: 10
-  min_lr: 1.0e-06

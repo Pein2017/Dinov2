@@ -9,7 +9,7 @@ from dinov2.data.masking import MaskingGenerator
 
 def test_data_loader():
     # Define the dataset string
-    dataset_str = "BBU:root=/path/to/bbu_full_dataset:split=train"
+    dataset_str = "JOINED:root=/path/to/bbu_shield_cleaned:split=train"
 
     # Create the dataset
     dataset = make_dataset(
