@@ -14,3 +14,4 @@ dist/
 mixed_data_root/
 bbu_logs/
 joined_logs/
+pretrained/

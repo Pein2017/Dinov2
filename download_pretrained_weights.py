@@ -2,7 +2,6 @@ import torch
 import os
 import torchvision.transforms as transforms
 from PIL import Image
-import shutil
 
 # mkdir -p ./pretrained
 os.makedirs('./pretrained', exist_ok=True)
