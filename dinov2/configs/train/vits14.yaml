@@ -5,21 +5,21 @@
 train:
   dataset_path:
     - JOINED:root=./mixed_data_root/bbu_shield_cleaned:split=train
-    - JOINED:root=./mixed_data_root/bbu_groundind_wire_cleaned:split=train
+    - JOINED:root=./mixed_data_root/bbu_grounding_wire_cleaned:split=train
     - JOINED:root=./mixed_data_root/integrated_cabinet_power_supply_cleaned:split=train
   batch_size_per_gpu: 256
   saveckp_freq: 2000
   seed: 17
   num_workers: 8
-  OFFICIAL_EPOCH_LENGTH: 500  # ignored for distributed sampler
+  OFFICIAL_EPOCH_LENGTH: 2500  # ignored for distributed sampler
   centering: "centering" # or "sinkhorn_knopp"
-  output_dir: 'joined_logs/vitb14-total_bs_1024-lr_1e-2-epochs_20-epoch_len_500-warmup_2-teacher_warmup_3'
+  output_dir: 'joined_logs/vitb14-total_bs_1024-lr_4e-3-epochs_30-epoch_len_2500-warmup_5-teacher_warmup_10'
   # sampler_type: DISTRIBUTED
 
 optim:
-  epochs: 20
-  base_lr: 1.0e-02
-  warmup_epochs: 2
+  epochs: 30
+  base_lr: 4.0e-03
+  warmup_epochs: 5
   min_lr: 1.0e-06
 
 # validation:
@@ -33,7 +33,7 @@ student:
   arch: vit_base
   patch_size: 14
 teacher:
-  warmup_teacher_temp_epochs: 3
+  warmup_teacher_temp_epochs: 10
 
 crops:
   local_crops_size: 98

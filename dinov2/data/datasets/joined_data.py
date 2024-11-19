@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Any, Callable, Optional, Tuple, List
+import logging
 
 from PIL import Image, ImageFile
 
@@ -10,6 +11,13 @@ from .decoders import ImageDataDecoder, TargetDecoder
 # Enable loading of truncated images
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 class JoinedDataset(ExtendedVisionDataset):
     def __init__(
@@ -103,8 +111,7 @@ class JoinedDataset(ExtendedVisionDataset):
             image = ImageDataDecoder(image_data).decode()
         except OSError as e:
             # Handle the error, e.g., skip the image or log the error
-            print(f"Error loading image {self.data_list[index]['img_path']}: {e}")
-            # Optionally, you can skip the corrupted image by recursively calling __getitem__
+            logger.error(f"Error loading image {self.data_list[index]['img_path']}: {e}")
             return self.__getitem__((index + 1) % len(self))
 
         target = self.get_target(index)
@@ -114,3 +121,14 @@ class JoinedDataset(ExtendedVisionDataset):
             image, target = self.transforms(image, target)
 
         return image, target
+
+
+def main():
+    '''
+    Test the JoinedDataset
+    '''
+    dataset = JoinedDataset(split='train', data_dirs_list=['/data/training_code/Pein/dinov2/mixed_data_root/bbu_groundind_wire_cleaned', '/data/training_code/Pein/dinov2/mixed_data_root/bbu_shield_cleaned','/data/training_code/Pein/dinov2/mixed_data_root/integrated_cabinet_power_supply_cleaned'])
+    logger.info(f"Dataset length: {len(dataset)}")
+    
+if __name__ == '__main__':
+    main()

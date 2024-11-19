@@ -27,7 +27,7 @@ CONFIG_FILE=dinov2/configs/train/vits14.yaml
 
 # Define root and experiment names based on hyperparameters
 ROOT_LOG_DIR="joined_logs"
-EXPERIMENT_NAME="vitb14-total_bs_1024-lr_1e-2-epochs_20-epoch_len_500-warmup_2-teacher_warmup_3"
+EXPERIMENT_NAME="vitb14-total_bs_1024-lr_4e-3-epochs_30-epoch_len_2500-warmup_5-teacher_warmup_10"
 LOG_DIR="$ROOT_LOG_DIR/$EXPERIMENT_NAME"
 
 NO_RESUME=true
