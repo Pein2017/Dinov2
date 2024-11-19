@@ -10,7 +10,7 @@ dist/
 
 .vscode/
 
-# ingore the folder of ./bbu_shield_cleaned and bbu_logs
+# Ignore the following folders
 mixed_data_root/
 bbu_logs/
 joined_logs/
