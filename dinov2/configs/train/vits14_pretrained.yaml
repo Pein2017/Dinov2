@@ -8,16 +8,16 @@ train:
     - JOINED:root=./mixed_data_root/bbu_grounding_wire_cleaned:split=train
     - JOINED:root=./mixed_data_root/integrated_cabinet_power_supply_cleaned:split=train
   batch_size_per_gpu: 64   
-  saveckp_freq: 2000
+  saveckp_freq: 20000
   seed: 17
   num_workers: 8
-  OFFICIAL_EPOCH_LENGTH: 500 # ignored for distributed sampler
+  OFFICIAL_EPOCH_LENGTH: 2500 # ignored for distributed sampler
   centering: centering # or "sinkhorn_knopp"
-  output_dir: joined_logs/vits14-total_bs_128-lr_2e-5-epochs_100-epoch_len_500-warmup_10-teacher_warmup_30
+  output_dir: joined_logs/vits14-total_bs_384-lr_1e-4-epochs_100-epoch_len_2500-warmup_10-teacher_warmup_30-pretrained
 
 optim:
   epochs: 100
-  base_lr: 5.0e-05
+  base_lr: 1.0e-04
   warmup_epochs: 10
   min_lr: 1.0e-06
 
@@ -25,7 +25,7 @@ student:
   block_chunks: 4
   arch: vit_base
   patch_size: 14
-  pretrained_weights: ""
+  pretrained_weights: ./pretrained/dinov2_vitb14_pretrain.pth
 
 teacher:
   warmup_teacher_temp_epochs: 30
@@ -35,4 +35,4 @@ crops:
   local_crops_size: 98
 
 evaluation:
-  eval_period_iterations: 2000
+  eval_period_iterations: 20000

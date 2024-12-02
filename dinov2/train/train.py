@@ -8,11 +8,11 @@ import logging
 import math
 import os
 from functools import partial
-from re import I
 
 import torch
 import torch.distributed as dist  # Import distributed module for rank checking
 from fvcore.common.checkpoint import PeriodicCheckpointer
+from omegaconf import ListConfig
 from torch.utils.tensorboard import SummaryWriter  # Import SummaryWriter
 
 import dinov2.distributed as distributed
@@ -29,7 +29,8 @@ from dinov2.logging import MetricLogger
 from dinov2.train.ssl_meta_arch import SSLMetaArch
 from dinov2.utils.config import setup
 from dinov2.utils.utils import CosineScheduler
-from omegaconf import ListConfig 
+
+
 
 torch.backends.cuda.matmul.allow_tf32 = (
     True  # PyTorch 1.12 sets this to False by default
@@ -221,7 +222,7 @@ def do_train(cfg, model, resume=False):
         batch_size=cfg.train.batch_size_per_gpu,
         num_workers=cfg.train.num_workers,
         shuffle=True,
-        seed=cfg.train.seed,  
+        seed=cfg.train.seed,
         sampler_type=SamplerType.INFINITE,  #! Fix to be INFINITE
         sampler_advance=start_iter * cfg.train.batch_size_per_gpu,
         drop_last=True,
@@ -229,10 +230,11 @@ def do_train(cfg, model, resume=False):
     )
 
     # Now that dataset is defined, set sampler_type and OFFICIAL_EPOCH_LENGTH
-    sampler_type = SamplerType[cfg.train.get('sampler_type', 'INFINITE')]
+    sampler_type = SamplerType[cfg.train.get("sampler_type", "INFINITE")]
     if sampler_type in {SamplerType.EPOCH, SamplerType.DISTRIBUTED}:
         cfg.train.OFFICIAL_EPOCH_LENGTH = math.ceil(
-            len(dataset) / (cfg.train.batch_size_per_gpu * distributed.get_global_size())
+            len(dataset)
+            / (cfg.train.batch_size_per_gpu * distributed.get_global_size())
         )
         logger.info(f"OFFICIAL_EPOCH_LENGTH set to: {cfg.train.OFFICIAL_EPOCH_LENGTH}")
 
@@ -252,16 +254,16 @@ def do_train(cfg, model, resume=False):
     if cfg.get("validation", None):
         # Setup validation data loader
         validation_dataset = make_dataset(
-        dataset_str=cfg.validation.dataset_path,
-        transform=data_transform,  
-        target_transform=lambda _: (),
+            dataset_str=cfg.validation.dataset_path,
+            transform=data_transform,
+            target_transform=lambda _: (),
         )
         validation_loader = make_data_loader(
             dataset=validation_dataset,
             batch_size=cfg.validation.batch_size_per_gpu,
             num_workers=cfg.validation.num_workers,
             shuffle=False,
-            sampler_type=SamplerType.EPOCH,  
+            sampler_type=SamplerType.EPOCH,
             drop_last=False,
         )
 
@@ -339,8 +341,13 @@ def do_train(cfg, model, resume=False):
         }
 
         if math.isnan(sum(loss_dict_reduced.values())):
-            logger.warning("NaN detected, skipping this iteration to prevent training collapse")
-            continue  # Skip the current iteration and continue training
+            logger.error(
+                "NaN detected, skipping this iteration to prevent training collapse"
+            )
+            raise ValueError(
+                "NaN detected, skipping this iteration to prevent training collapse"
+            )
+
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
         metric_logger.update(lr=lr)
@@ -367,7 +374,9 @@ def do_train(cfg, model, resume=False):
         # Compute and log gradient norm to TensorBoard
         if writer:
             # Compute total gradient norm using torch's utility (set max_norm to a large value to avoid clipping)
-            total_grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1e9)
+            total_grad_norm = torch.nn.utils.clip_grad_norm_(
+                model.parameters(), max_norm=1e9
+            )
             writer.add_scalar("train/gradient_norm", total_grad_norm, iteration)
             # Accumulate gradient norm for epoch-wise average
             accumulated_grad_norm += total_grad_norm.item()
@@ -400,7 +409,9 @@ def do_train(cfg, model, resume=False):
         if (iteration + 1) % cfg.train.OFFICIAL_EPOCH_LENGTH == 0:
             avg_grad_norm = accumulated_grad_norm / cfg.train.OFFICIAL_EPOCH_LENGTH
             if writer:
-                writer.add_scalar("train/average_gradient_norm", avg_grad_norm, current_epoch)
+                writer.add_scalar(
+                    "train/average_gradient_norm", avg_grad_norm, current_epoch
+                )
             accumulated_grad_norm = 0.0  # Reset accumulator
 
         iteration = iteration + 1
@@ -421,8 +432,10 @@ def validate(cfg, model, validation_loader, writer, iteration):
     with torch.no_grad():
         for data in validation_loader:
             # Compute validation losses without backpropagation
-            loss_dict = model.validate_batch(data, teacher_temp=cfg.teacher.teacher_temp)
-            
+            loss_dict = model.validate_batch(
+                data, teacher_temp=cfg.teacher.teacher_temp
+            )
+
             # Accumulate losses
             for loss_name, loss_value in loss_dict.items():
                 if loss_name not in total_loss_dict:
@@ -443,11 +456,18 @@ def validate(cfg, model, validation_loader, writer, iteration):
 
 
 def main(args):
+    import torchvision.transforms as transforms
+    
     cfg = setup(args)
+    
+    device = torch.device("cuda")
 
-    model = SSLMetaArch(cfg=cfg).to(torch.device("cuda"))
+    model = SSLMetaArch(cfg=cfg).to(device)
+
+    
+    
     model.prepare_for_distributed_training()
-
+    
     logger.info("Model:\n{}".format(model))
     if args.eval_only:
         iteration = (

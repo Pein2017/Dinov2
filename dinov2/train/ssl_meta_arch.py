@@ -52,15 +52,24 @@ class SSLMetaArch(nn.Module):
             logger.info(
                 f"OPTIONS -- Pretrained weights: loading from {cfg.student.pretrained_weights}"
             )
-            # Pre-verify checkpoint keys before loading
-            if "model" in chkpt:
-                student_backbone.load_state_dict(chkpt["model"], strict=False)
-                logger.info("Loaded pretrained weights from 'model' key in checkpoint.")
-            elif "teacher" in chkpt:
-                student_backbone.load_state_dict(chkpt["teacher"], strict=False)
-                logger.info("Loaded pretrained weights from 'teacher' key in checkpoint.")
-            else:
-                raise KeyError("Checkpoint does not contain 'model' or 'teacher' keys.")
+            try:
+                # Pre-verify checkpoint keys before loading
+                if "model" in chkpt:
+                    student_backbone.load_state_dict(chkpt["model"], strict=False)
+                    logger.info(
+                        "Loaded pretrained weights from 'model' key in checkpoint."
+                    )
+                elif "teacher" in chkpt:
+                    student_backbone.load_state_dict(chkpt["teacher"], strict=False)
+                    logger.info(
+                        "Loaded pretrained weights from 'teacher' key in checkpoint."
+                    )
+                else:
+                    student_backbone.load_state_dict(chkpt, strict=False)
+                    logger.info("Loaded pretrained weights from checkpoint.")
+            except Exception as e:
+                logger.error(f"Error loading pretrained weights: {e}")
+                raise
 
         self.embed_dim = embed_dim
         self.dino_out_dim = cfg.dino.head_n_prototypes

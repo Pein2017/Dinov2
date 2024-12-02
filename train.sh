@@ -15,28 +15,27 @@ trap 'echo "Caught SIGINT or SIGTERM, terminating..."; kill -- -$$; exit 1' INT 
 
 # Define variables
 PROJECT_DIR="/data/training_code/Pein/dinov2"
-GPUS_PER_NODE=4
-
+GPUS_PER_NODE=6
 # Add a variable to manually set CUDA devices. Set to "" to auto-detect.
-MANUAL_GPU_LIST="4,5,6,7"
+MANUAL_GPU_LIST=0,1,2,3,4,5
 
 cd "$PROJECT_DIR"
 
 # Navigate to the project root directory
-CONFIG_FILE=dinov2/configs/train/vits14.yaml
+CONFIG_FILE=dinov2/configs/train/vits14_pretrained.yaml
 
 # Define root and experiment names based on hyperparameters
-ROOT_LOG_DIR="joined_logs"
-EXPERIMENT_NAME="vitb14-total_bs_1024-lr_4e-3-epochs_30-epoch_len_2500-warmup_5-teacher_warmup_10"
+ROOT_LOG_DIR=joined_logs
+EXPERIMENT_NAME=vits14-total_bs_384-lr_1e-4-epochs_100-epoch_len_2500-warmup_10-teacher_warmup_30-pretrained
 LOG_DIR="$ROOT_LOG_DIR/$EXPERIMENT_NAME"
 
 NO_RESUME=true
 
-PYTHON_SCRIPT="dinov2/train/train.py"
+PYTHON_SCRIPT=dinov2/train/train.py
 OUTPUT_DIR="$LOG_DIR"
 
 # Define a new port to avoid address in use error
-PORT=29502
+PORT=29501
 
 # Print debug information
 echo "Current directory: $PROJECT_DIR"
